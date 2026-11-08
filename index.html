@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Action Tracker</title>
+<style>
+  :root{
+    --bg:#f4f2ee; --card:#ffffff; --ink:#2f3437; --muted:#8a8f93; --line:#e6e3dd;
+    --accent:#f26a1b; --accent-soft:#fdebdd; --red:#c62828; --red-soft:#fbe9e7; --done:#b9bdbf;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:18px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 20px 64px}
+  h1{font-size:32px;margin:0 0 4px;letter-spacing:-.5px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);margin:0 0 24px;font-size:17px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;
+    box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+  .stat{text-align:center;padding:16px}
+  .stat b{display:block;font-size:40px;line-height:1.1}
+  .stat small{color:var(--muted);font-size:15px;text-transform:uppercase;letter-spacing:.06em}
+  .stat.open b{color:var(--accent)}
+  .stat.overdue b{color:var(--red)}
+  form{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;margin-bottom:28px}
+  input{font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fcfbf9;color:var(--ink);min-width:0}
+  input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+  button.add{font:inherit;font-weight:600;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 22px;cursor:pointer}
+  button.add:hover{filter:brightness(.95)}
+  .owner{margin-bottom:20px}
+  .owner h2{font-size:20px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+  .owner h2 em{font-style:normal;font-size:15px;color:var(--muted);font-weight:400}
+  .item{display:flex;align-items:center;gap:14px;padding:12px 10px;border-radius:10px;border-top:1px solid var(--line)}
+  .item:first-of-type{border-top:0}
+  .item input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent);flex:none;cursor:pointer;padding:0}
+  .txt{flex:1;min-width:0;word-wrap:break-word}
+  .due{font-size:15px;color:var(--muted);white-space:nowrap}
+  .item.done .txt{text-decoration:line-through;color:var(--done)}
+  .item.done .due{color:var(--done)}
+  .item.overdue{background:var(--red-soft)}
+  .item.overdue .txt,.item.overdue .due{color:var(--red);font-weight:600}
+  .del{background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;padding:0 6px;line-height:1}
+  .del:hover{color:var(--red)}
+  .empty{text-align:center;color:var(--muted);padding:32px}
+  .tools{text-align:right;margin-top:8px}
+  .tools button{background:none;border:0;color:var(--muted);font:inherit;font-size:15px;cursor:pointer;text-decoration:underline}
+  @media(max-width:640px){
+    form{grid-template-columns:1fr}
+    .stat b{font-size:32px}
+    .item{flex-wrap:wrap}
+    .due{width:100%;padding-left:40px;order:3}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Action <span>Tracker</span></h1>
+  <p class="sub" id="today"></p>
+
+  <div class="stats">
+    <div class="card stat open"><b id="nOpen">0</b><small>Open</small></div>
+    <div class="card stat done"><b id="nDone">0</b><small>Done</small></div>
+    <div class="card stat overdue"><b id="nOver">0</b><small>Overdue</small></div>
+  </div>
+
+  <div class="card" style="margin-bottom:28px">
+    <form id="f">
+      <input id="task" placeholder="What was agreed?" required maxlength="200">
+      <input id="owner" placeholder="Owner" required maxlength="40" list="owners">
+      <input id="due" type="date" required aria-label="Due date">
+      <button class="add" type="submit">Add</button>
+    </form>
+    <datalist id="owners"></datalist>
+    <div id="list"></div>
+    <div class="tools"><button id="clear">Clear completed</button></div>
+  </div>
+</div>
+
+<script>
+const KEY = 'meeting-actions-v1';
+let actions = [];
+try { actions = JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ actions = []; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(actions)); } catch(e){} };
+
+const $ = id => document.getElementById(id);
+const todayISO = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmt = iso => { const [y,m,d]=iso.split('-').map(Number); return d+' '+MONTHS[m-1]+' '+y; };
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const isOver = a => !a.done && a.due < todayISO();
+
+$('today').textContent = 'Today is ' + fmt(todayISO());
+$('due').value = todayISO();
+
+function render(){
+  const open = actions.filter(a=>!a.done).length;
+  $('nOpen').textContent = open;
+  $('nDone').textContent = actions.length - open;
+  $('nOver').textContent = actions.filter(isOver).length;
+
+  const groups = {};
+  actions.forEach(a => (groups[a.owner] = groups[a.owner] || []).push(a));
+  const names = Object.keys(groups).sort((a,b)=>a.localeCompare(b));
+  $('owners').innerHTML = names.map(n=>`<option value="${esc(n)}">`).join('');
+
+  if(!names.length){ $('list').innerHTML = '<div class="empty">No actions yet. Add the first one above.</div>'; return; }
+
+  $('list').innerHTML = names.map(n=>{
+    const items = groups[n].slice().sort((a,b)=> (a.done-b.done) || a.due.localeCompare(b.due));
+    const o = items.filter(a=>!a.done).length;
+    return `<section class="owner"><h2>${esc(n)}<em>${o} open · ${items.length-o} done</em></h2>` +
+      items.map(a=>`<div class="item ${a.done?'done':''} ${isOver(a)?'overdue':''}">
+        <input type="checkbox" data-id="${a.id}" ${a.done?'checked':''} aria-label="Mark done">
+        <span class="txt">${esc(a.task)}</span>
+        <span class="due">${isOver(a)?'Overdue · ':'Due '}${fmt(a.due)}</span>
+        <button class="del" data-del="${a.id}" aria-label="Delete">×</button>
+      </div>`).join('') + '</section>';
+  }).join('');
+}
+
+$('f').addEventListener('submit', e=>{
+  e.preventDefault();
+  const task=$('task').value.trim(), owner=$('owner').value.trim(), due=$('due').value;
+  if(!task||!owner||!due) return;
+  actions.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), task, owner, due, done:false});
+  save(); render();
+  $('task').value=''; $('task').focus();
+});
+
+$('list').addEventListener('click', e=>{
+  const t=e.target;
+  if(t.dataset.id){ const a=actions.find(x=>x.id===t.dataset.id); if(a){a.done=t.checked; save(); render();} }
+  if(t.dataset.del){ actions=actions.filter(x=>x.id!==t.dataset.del); save(); render(); }
+});
+
+$('clear').addEventListener('click', ()=>{
+  if(actions.some(a=>a.done) && confirm('Remove all completed actions?')){ actions=actions.filter(a=>!a.done); save(); render(); }
+});
+
+render();
+</script>
+</body>
+</html>
