@@ -7,7 +7,7 @@ A simple meeting action tracker for teams that keep forgetting agreed actions.
 - Add an action with an owner and a due date
 - Actions grouped by owner, with a tick box for done
 - Open, done and overdue counts; overdue actions are highlighted in red
-- Data is saved in the browser's local storage (per browser and device)
+- Data is stored in a shared Supabase database, so the whole team sees the same actions
 
 ## Run locally
 
@@ -24,4 +24,4 @@ Every push to `main` will redeploy automatically.
 
 ## Note
 
-Because data lives in local storage, each person sees only the actions entered in their own browser. A shared team view would need a backend (for example Supabase).
+The app talks to Supabase using the project's publishable key, which is safe to expose in the browser. There is no sign-in, so anyone with the site link can view and edit actions (row-level security policies allow the `anon` role). Add Supabase Auth if you need to restrict access.

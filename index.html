@@ -58,6 +58,7 @@
 <div class="wrap">
   <h1>Action <span>Tracker</span></h1>
   <p class="sub" id="today"></p>
+  <div id="err" role="alert" style="display:none;background:var(--red-soft);color:var(--red);border-radius:10px;padding:12px 16px;margin-bottom:16px"></div>
 
   <div class="stats">
     <div class="card stat open"><b id="nOpen">0</b><small>Open</small></div>
@@ -79,10 +80,25 @@
 </div>
 
 <script>
-const KEY = 'meeting-actions-v1';
+// Supabase (publishable key is designed to be public; access is controlled by row-level security)
+const SB_URL = 'https://wohatrvguwromihsslvf.supabase.co';
+const SB_KEY = 'sb_publishable_BrKOI3Su666j7sZ_onq4FA_M0MIQtmx';
+const REST = SB_URL + '/rest/v1/actions';
+const HEADERS = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+
 let actions = [];
-try { actions = JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ actions = []; }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(actions)); } catch(e){} };
+
+async function api(path, opts = {}) {
+  const res = await fetch(REST + path, { ...opts, headers: { ...HEADERS, ...(opts.headers || {}) } });
+  if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+  return res.status === 204 ? null : res.json();
+}
+function showError(msg){ const el = $('err'); el.textContent = msg || ''; el.style.display = msg ? 'block' : 'none'; }
+async function load(){
+  try { actions = await api('?select=*&order=created_at.asc'); showError(''); }
+  catch(e){ showError('Could not load actions. Please check your connection and refresh.'); }
+  render();
+}
 
 const $ = id => document.getElementById(id);
 const todayISO = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
@@ -120,26 +136,40 @@ function render(){
   }).join('');
 }
 
-$('f').addEventListener('submit', e=>{
+$('f').addEventListener('submit', async e=>{
   e.preventDefault();
   const task=$('task').value.trim(), owner=$('owner').value.trim(), due=$('due').value;
   if(!task||!owner||!due) return;
-  actions.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), task, owner, due, done:false});
-  save(); render();
-  $('task').value=''; $('task').focus();
+  try {
+    const [row] = await api('', { method:'POST', headers:{Prefer:'return=representation'}, body: JSON.stringify({task, owner, due, done:false}) });
+    actions.push(row); showError(''); render();
+    $('task').value=''; $('task').focus();
+  } catch(err){ showError('Could not add the action. Please try again.'); }
 });
 
-$('list').addEventListener('click', e=>{
+$('list').addEventListener('click', async e=>{
   const t=e.target;
-  if(t.dataset.id){ const a=actions.find(x=>x.id===t.dataset.id); if(a){a.done=t.checked; save(); render();} }
-  if(t.dataset.del){ actions=actions.filter(x=>x.id!==t.dataset.del); save(); render(); }
+  try {
+    if(t.dataset.id){
+      const a=actions.find(x=>x.id===t.dataset.id); if(!a) return;
+      await api('?id=eq.'+encodeURIComponent(a.id), { method:'PATCH', body: JSON.stringify({done:t.checked}) });
+      a.done=t.checked; showError(''); render();
+    }
+    if(t.dataset.del){
+      await api('?id=eq.'+encodeURIComponent(t.dataset.del), { method:'DELETE' });
+      actions=actions.filter(x=>x.id!==t.dataset.del); showError(''); render();
+    }
+  } catch(err){ showError('Could not save that change. Please try again.'); render(); }
 });
 
-$('clear').addEventListener('click', ()=>{
-  if(actions.some(a=>a.done) && confirm('Remove all completed actions?')){ actions=actions.filter(a=>!a.done); save(); render(); }
+$('clear').addEventListener('click', async ()=>{
+  if(actions.some(a=>a.done) && confirm('Remove all completed actions?')){
+    try { await api('?done=eq.true', { method:'DELETE' }); actions=actions.filter(a=>!a.done); showError(''); render(); }
+    catch(err){ showError('Could not clear completed actions. Please try again.'); }
+  }
 });
 
-render();
+load();
 </script>
 </body>
 </html>
