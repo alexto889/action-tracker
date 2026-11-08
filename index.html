@@ -10,25 +10,46 @@
     --accent:#f26a1b; --accent-soft:#fdebdd; --red:#c62828; --red-soft:#fbe9e7; --done:#b9bdbf;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none !important}
   body{margin:0;background:var(--bg);color:var(--ink);
     font:18px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   .wrap{max-width:860px;margin:0 auto;padding:32px 20px 64px}
   h1{font-size:32px;margin:0 0 4px;letter-spacing:-.5px}
   h1 span{color:var(--accent)}
+  h3{font-size:20px;margin:0 0 14px}
   .sub{color:var(--muted);margin:0 0 24px;font-size:17px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;
     box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .stack{margin-bottom:24px}
   .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
   .stat{text-align:center;padding:16px}
   .stat b{display:block;font-size:40px;line-height:1.1}
   .stat small{color:var(--muted);font-size:15px;text-transform:uppercase;letter-spacing:.06em}
   .stat.open b{color:var(--accent)}
   .stat.overdue b{color:var(--red)}
-  form{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;margin-bottom:28px}
-  input{font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fcfbf9;color:var(--ink);min-width:0}
-  input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+  input,select{font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fcfbf9;color:var(--ink);min-width:0;width:100%}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+  label{display:block;font-size:15px;color:var(--muted);margin:0 0 4px}
+  .field{margin-bottom:14px}
   button.add{font:inherit;font-weight:600;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 22px;cursor:pointer}
   button.add:hover{filter:brightness(.95)}
+  button.add:disabled{opacity:.6;cursor:wait}
+  button.ghost{font:inherit;font-size:16px;background:none;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 14px;cursor:pointer}
+  button.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .err{background:var(--red-soft);color:var(--red);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:16px}
+  .ok{background:#eaf4ea;color:#2e6b34;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:16px}
+
+  /* sign-in */
+  .login{max-width:420px;margin:12vh auto 0}
+  .login .card{padding:28px}
+
+  /* top bar */
+  .bar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .who{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:16px;color:var(--muted)}
+  .who b{color:var(--ink)}
+  .badge{background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600;border-radius:99px;padding:2px 10px;text-transform:uppercase;letter-spacing:.05em}
+
+  form.add-form{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;margin-bottom:28px}
   .owner{margin-bottom:20px}
   .owner h2{font-size:20px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
   .owner h2 em{font-style:normal;font-size:15px;color:var(--muted);font-weight:400}
@@ -46,8 +67,17 @@
   .empty{text-align:center;color:var(--muted);padding:32px}
   .tools{text-align:right;margin-top:8px}
   .tools button{background:none;border:0;color:var(--muted);font:inherit;font-size:15px;cursor:pointer;text-decoration:underline}
-  @media(max-width:640px){
-    form{grid-template-columns:1fr}
+
+  /* admin / password panels */
+  .grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:18px}
+  .urow{display:flex;align-items:center;gap:12px;padding:10px 4px;border-top:1px solid var(--line)}
+  .urow:first-of-type{border-top:0}
+  .urow .name{flex:1;min-width:0}
+  .urow small{color:var(--muted);font-size:15px}
+  .hint{font-size:15px;color:var(--muted);margin:0 0 14px}
+
+  @media(max-width:700px){
+    form.add-form,.grid4{grid-template-columns:1fr}
     .stat b{font-size:32px}
     .item{flex-wrap:wrap}
     .due{width:100%;padding-left:40px;order:3}
@@ -55,10 +85,52 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<!-- Sign in -->
+<div class="wrap login" id="loginView" hidden>
   <h1>Action <span>Tracker</span></h1>
-  <p class="sub" id="today"></p>
-  <div id="err" role="alert" style="display:none;background:var(--red-soft);color:var(--red);border-radius:10px;padding:12px 16px;margin-bottom:16px"></div>
+  <p class="sub">Sign in to see your team's actions.</p>
+  <div class="card">
+    <div id="loginErr" class="err" role="alert" hidden></div>
+    <form id="loginForm" autocomplete="on">
+      <div class="field">
+        <label for="lu">Username</label>
+        <input id="lu" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
+      <div class="field">
+        <label for="lp">Password</label>
+        <input id="lp" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="add" id="loginBtn" type="submit" style="width:100%">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- App -->
+<div class="wrap" id="appView" hidden>
+  <div class="bar">
+    <div>
+      <h1>Action <span>Tracker</span></h1>
+      <p class="sub" id="today"></p>
+    </div>
+    <div class="who">
+      <span>Signed in as <b id="whoName"></b></span>
+      <span class="badge" id="whoRole"></span>
+      <button class="ghost" id="pwToggle" type="button">Change password</button>
+      <button class="ghost" id="signOut" type="button">Sign out</button>
+    </div>
+  </div>
+
+  <div id="err" class="err" role="alert" hidden></div>
+  <div id="msg" class="ok" role="status" hidden></div>
+
+  <div class="card stack" id="pwPanel" hidden>
+    <h3>Change your password</h3>
+    <form id="pwForm" style="display:grid;grid-template-columns:1fr auto;gap:12px">
+      <input id="newPw" type="password" minlength="8" autocomplete="new-password" placeholder="New password (at least 8 characters)" required>
+      <button class="add" type="submit">Save</button>
+    </form>
+  </div>
 
   <div class="stats">
     <div class="card stat open"><b id="nOpen">0</b><small>Open</small></div>
@@ -66,8 +138,8 @@
     <div class="card stat overdue"><b id="nOver">0</b><small>Overdue</small></div>
   </div>
 
-  <div class="card" style="margin-bottom:28px">
-    <form id="f">
+  <div class="card stack">
+    <form class="add-form" id="f">
       <input id="task" placeholder="What was agreed?" required maxlength="200">
       <input id="owner" placeholder="Owner" required maxlength="40" list="owners">
       <input id="due" type="date" required aria-label="Due date">
@@ -75,40 +147,98 @@
     </form>
     <datalist id="owners"></datalist>
     <div id="list"></div>
-    <div class="tools"><button id="clear">Clear completed</button></div>
+    <div class="tools"><button id="clear" type="button">Clear completed</button></div>
+  </div>
+
+  <!-- Admin only -->
+  <div class="card stack" id="adminPanel" hidden>
+    <h3>Manage users</h3>
+    <p class="hint">Add a person and set their initial password. They can change it after signing in.</p>
+    <form class="grid4" id="userForm">
+      <div><label for="nu">Username</label><input id="nu" required pattern="[a-zA-Z0-9_]{3,20}" title="3 to 20 letters, numbers or underscores" autocapitalize="none" autocomplete="off" spellcheck="false"></div>
+      <div><label for="nd">Display name</label><input id="nd" required maxlength="40" autocomplete="off"></div>
+      <div><label for="np">Initial password</label><input id="np" type="text" minlength="8" required autocomplete="off" spellcheck="false"></div>
+      <div><label for="nr">Role</label><select id="nr"><option value="member">Member</option><option value="admin">Admin</option></select></div>
+      <button class="add" type="submit">Add user</button>
+    </form>
+    <div id="users"></div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// Supabase (publishable key is designed to be public; access is controlled by row-level security)
+// Supabase (the publishable key is designed to be public; access is controlled by sign-in and row-level security)
 const SB_URL = 'https://wohatrvguwromihsslvf.supabase.co';
 const SB_KEY = 'sb_publishable_BrKOI3Su666j7sZ_onq4FA_M0MIQtmx';
-const REST = SB_URL + '/rest/v1/actions';
-const HEADERS = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
-
-let actions = [];
-
-async function api(path, opts = {}) {
-  const res = await fetch(REST + path, { ...opts, headers: { ...HEADERS, ...(opts.headers || {}) } });
-  if (!res.ok) throw new Error('Request failed (' + res.status + ')');
-  return res.status === 204 ? null : res.json();
-}
-function showError(msg){ const el = $('err'); el.textContent = msg || ''; el.style.display = msg ? 'block' : 'none'; }
-async function load(){
-  try { actions = await api('?select=*&order=created_at.asc'); showError(''); }
-  catch(e){ showError('Could not load actions. Please check your connection and refresh.'); }
-  render();
-}
+const EMAIL_DOMAIN = '@actiontracker.example';
+const sb = supabase.createClient(SB_URL, SB_KEY);
 
 const $ = id => document.getElementById(id);
 const todayISO = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const fmt = iso => { const [y,m,d]=iso.split('-').map(Number); return d+' '+MONTHS[m-1]+' '+y; };
-const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isOver = a => !a.done && a.due < todayISO();
 
-$('today').textContent = 'Today is ' + fmt(todayISO());
-$('due').value = todayISO();
+let actions = [], me = null, profile = null;
+
+function show(el, on){ el.hidden = !on; }
+function showError(msg){ const el=$('err'); el.textContent = msg||''; show(el, !!msg); if(msg) show($('msg'), false); }
+function showMsg(msg){ const el=$('msg'); el.textContent = msg||''; show(el, !!msg); if(msg) show($('err'), false); }
+
+/* ---------- Sign in / out ---------- */
+$('loginForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const username = $('lu').value.trim().toLowerCase(), password = $('lp').value;
+  const btn = $('loginBtn'); btn.disabled = true; btn.textContent = 'Signing in…';
+  const { error } = await sb.auth.signInWithPassword({ email: username + EMAIL_DOMAIN, password });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if (error) {
+    const el = $('loginErr'); el.textContent = 'Incorrect username or password.'; show(el, true);
+    return;
+  }
+  $('lp').value = '';
+  // onAuthStateChange takes it from here
+});
+
+$('signOut').addEventListener('click', async ()=>{ await sb.auth.signOut(); });
+
+sb.auth.onAuthStateChange((event, session)=>{
+  // defer to avoid calling Supabase inside the auth callback
+  setTimeout(()=> route(session), 0);
+});
+
+async function route(session){
+  if (!session) {
+    me = null; profile = null; actions = [];
+    show($('appView'), false); show($('loginView'), true);
+    show($('loginErr'), false); show($('pwPanel'), false);
+    return;
+  }
+  if (me && me.id === session.user.id) return; // already set up (token refresh, duplicate startup event)
+  me = session.user;
+  const { data, error } = await sb.from('profiles').select('*').eq('id', me.id).single();
+  if (error || !data) { await sb.auth.signOut(); return; }
+  profile = data;
+  show($('loginView'), false); show($('appView'), true);
+  $('whoName').textContent = profile.display_name;
+  $('whoRole').textContent = profile.role;
+  $('today').textContent = 'Today is ' + fmt(todayISO());
+  $('due').value = todayISO();
+  $('owner').value = profile.display_name;
+  show($('adminPanel'), profile.role === 'admin');
+  showError(''); showMsg('');
+  await loadActions();
+  if (profile.role === 'admin') loadUsers();
+}
+
+/* ---------- Actions ---------- */
+async function loadActions(){
+  const { data, error } = await sb.from('actions').select('*').order('created_at', { ascending: true });
+  if (error) showError('Could not load actions. Please check your connection and refresh.');
+  else { actions = data; showError(''); }
+  render();
+}
 
 function render(){
   const open = actions.filter(a=>!a.done).length;
@@ -140,36 +270,76 @@ $('f').addEventListener('submit', async e=>{
   e.preventDefault();
   const task=$('task').value.trim(), owner=$('owner').value.trim(), due=$('due').value;
   if(!task||!owner||!due) return;
-  try {
-    const [row] = await api('', { method:'POST', headers:{Prefer:'return=representation'}, body: JSON.stringify({task, owner, due, done:false}) });
-    actions.push(row); showError(''); render();
-    $('task').value=''; $('task').focus();
-  } catch(err){ showError('Could not add the action. Please try again.'); }
+  const { data, error } = await sb.from('actions').insert({ task, owner, due, done:false }).select().single();
+  if (error) { showError('Could not add the action. Please try again.'); return; }
+  actions.push(data); showError(''); render();
+  $('task').value=''; $('task').focus();
 });
 
 $('list').addEventListener('click', async e=>{
   const t=e.target;
-  try {
-    if(t.dataset.id){
-      const a=actions.find(x=>x.id===t.dataset.id); if(!a) return;
-      await api('?id=eq.'+encodeURIComponent(a.id), { method:'PATCH', body: JSON.stringify({done:t.checked}) });
-      a.done=t.checked; showError(''); render();
-    }
-    if(t.dataset.del){
-      await api('?id=eq.'+encodeURIComponent(t.dataset.del), { method:'DELETE' });
-      actions=actions.filter(x=>x.id!==t.dataset.del); showError(''); render();
-    }
-  } catch(err){ showError('Could not save that change. Please try again.'); render(); }
+  if(t.dataset.id){
+    const a=actions.find(x=>x.id===t.dataset.id); if(!a) return;
+    const { error } = await sb.from('actions').update({ done:t.checked }).eq('id', a.id);
+    if (error) { showError('Could not save that change. Please try again.'); render(); return; }
+    a.done=t.checked; showError(''); render();
+  }
+  if(t.dataset.del){
+    const { error } = await sb.from('actions').delete().eq('id', t.dataset.del);
+    if (error) { showError('Could not delete that action. Please try again.'); return; }
+    actions=actions.filter(x=>x.id!==t.dataset.del); showError(''); render();
+  }
 });
 
 $('clear').addEventListener('click', async ()=>{
   if(actions.some(a=>a.done) && confirm('Remove all completed actions?')){
-    try { await api('?done=eq.true', { method:'DELETE' }); actions=actions.filter(a=>!a.done); showError(''); render(); }
-    catch(err){ showError('Could not clear completed actions. Please try again.'); }
+    const { error } = await sb.from('actions').delete().eq('done', true);
+    if (error) { showError('Could not clear completed actions. Please try again.'); return; }
+    actions=actions.filter(a=>!a.done); showError(''); render();
   }
 });
 
-load();
+/* ---------- Change own password ---------- */
+$('pwToggle').addEventListener('click', ()=>{ const p=$('pwPanel'); show(p, p.hidden); if(!p.hidden) $('newPw').focus(); });
+$('pwForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const { error } = await sb.auth.updateUser({ password: $('newPw').value });
+  if (error) { showError(error.message || 'Could not change your password.'); return; }
+  $('newPw').value=''; show($('pwPanel'), false); showMsg('Your password has been changed.');
+});
+
+/* ---------- Admin: manage users ---------- */
+async function loadUsers(){
+  const { data, error } = await sb.from('profiles').select('*').order('username');
+  if (error) { $('users').innerHTML = '<div class="empty">Could not load users.</div>'; return; }
+  $('users').innerHTML = data.map(u=>`<div class="urow">
+      <div class="name"><b>${esc(u.display_name)}</b> <small>@${esc(u.username)}</small></div>
+      <span class="badge">${esc(u.role)}</span>
+      ${u.id===me.id ? '<small>You</small>' : `<button class="del" data-user="${u.id}" data-uname="${esc(u.username)}" aria-label="Remove user">×</button>`}
+    </div>`).join('');
+}
+
+$('userForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const { error } = await sb.rpc('create_app_user', {
+    p_username: $('nu').value.trim(), p_password: $('np').value,
+    p_display_name: $('nd').value.trim(), p_role: $('nr').value
+  });
+  if (error) { showError(error.message || 'Could not add that user.'); return; }
+  showMsg('User "' + $('nu').value.trim().toLowerCase() + '" added.');
+  $('userForm').reset(); loadUsers();
+});
+
+$('users').addEventListener('click', async e=>{
+  const id = e.target.dataset.user; if(!id) return;
+  if(!confirm('Remove user "' + e.target.dataset.uname + '"? They will no longer be able to sign in.')) return;
+  const { error } = await sb.rpc('delete_app_user', { p_id: id });
+  if (error) { showError(error.message || 'Could not remove that user.'); return; }
+  showMsg('User removed.'); loadUsers();
+});
+
+/* ---------- Start ---------- */
+sb.auth.getSession().then(({ data })=> route(data.session));
 </script>
 </body>
 </html>
